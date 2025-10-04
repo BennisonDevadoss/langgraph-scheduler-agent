@@ -14,6 +14,6 @@ def retriever_tool(query: str, _: RunnableConfig) -> Any:
     retriever_tool = create_retriever_tool(
         vector_db.vector_store.as_retriever(),
         "retriver_tool",
-        "Search and return information about Lilian Weng blog posts.",
+        "Search and return information about user query",
     )
     return retriever_tool.invoke(input=query)

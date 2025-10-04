@@ -1,8 +1,8 @@
-from typing import Any, Literal
+from typing import Any, Literal, Sequence
 
 from pydantic import BaseModel, Field
 from langgraph.prebuilt import ToolNode
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import ToolMessage, HumanMessage
 from langchain_core.runnables import Runnable, RunnableConfig, RunnableLambda
 from langchain_core.messages.base import BaseMessage
 
@@ -111,12 +111,20 @@ def grade_documents(
 ###################################
 # REWRITE QUESTION ASSISTANT
 ###################################
+
+
+def get_latest_human_question(messages: Sequence[BaseMessage]) -> str:
+    for message in reversed(messages):
+        if isinstance(message, HumanMessage):
+            return message.content
+    # there is no possible of returning empty string
+    return ""
+
+
 def rewrite_question(state: State) -> dict[str, list[dict[str, Any]]]:
     """Rewrite the original user question."""
     messages = state["messages"]
-    question = messages[
-        -2
-    ].content  # WARNING: this could cause issue in retriving current user message
+    question = get_latest_human_question(messages)
     prompt = rewrite_user_prompt_assistant_prompt.format(question=question)
     response = llm.invoke([{"role": "user", "content": prompt}])
     return {"messages": [{"role": "user", "content": response.content}]}
