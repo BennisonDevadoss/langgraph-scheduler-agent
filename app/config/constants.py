@@ -33,3 +33,8 @@ class VECTOR_DB_PROVIDERS(str, Enum):
     MILVUS = "milvus"
     CHROMADB = "chromadb"
     PG_VECTOR = "pg_vector"
+
+
+class GOOGLE_CALENDAR_CONFIGS(str, Enum):
+    MEET_LOCATION = "Remote"
+    DEFAULT_TIMEZONE = "Asia/Kolkata"
