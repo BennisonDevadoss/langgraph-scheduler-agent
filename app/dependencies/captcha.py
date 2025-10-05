@@ -3,11 +3,13 @@ import httpx
 from fastapi import Body
 
 from config.settings import SETTINGS
-from schemas.chat_schema import ChatRequestParams
+from schemas.chat_schema import RAGChatRequestParams, SchedulerChatRequestParams
 from exceptions.custom_errors import BadRequestException
 
 
-async def verify_captcha(params: ChatRequestParams = Body()) -> None:
+async def verify_captcha(
+    params: RAGChatRequestParams | SchedulerChatRequestParams = Body(),
+) -> None:
     if not params.captcha_token:
         raise BadRequestException("Captcha token missing")
 

@@ -67,7 +67,7 @@ def parse_nl_time_to_ist(nl_time: str) -> dict[str, str] | None:
 
     Returns:
         dict: {
-            "timestamp": UNIX timestamp (seconds since epoch),
+            "iso_format": ISO 8601 datetime string in IST,
         }
         Returns None if parsing fails.
     """
@@ -85,7 +85,7 @@ def parse_nl_time_to_ist(nl_time: str) -> dict[str, str] | None:
     ist = pytz.timezone(GOOGLE_CALENDAR_CONFIGS.DEFAULT_TIMEZONE.value)
     dt_ist = dt.astimezone(ist)
 
-    return {"timestamp": dt_ist}
+    return {"iso_format": dt_ist.isoformat()}
 
 
 @tool

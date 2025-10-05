@@ -3,6 +3,7 @@ from typing import Literal, Any
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import tools_condition
 from langgraph.graph.message import Messages
+from langchain_core.messages import ToolMessage
 from langchain_core.runnables.graph import MermaidDrawMethod
 from langchain_core.runnables.config import RunnableConfig
 
@@ -91,6 +92,38 @@ builder.add_conditional_edges(
 )
 builder.add_edge("create_event_assistant_tools", "create_event_assistant")
 
+
+####################################
+# GENERIC NODES AND EDGES
+####################################
+# This node will be shared for exiting all specialized assistants
+def pop_dialog_state(state: State) -> dict:
+    """Pop the dialog stack and return to the main assistant.
+
+    This lets the full graph explicitly track the dialog flow and delegate control
+    to specific sub-graphs.
+    """
+    messages = []
+    if state["messages"][-1].tool_calls:
+        # Note: Doesn't currently handle the edge case where the llm performs parallel tool calls
+        messages.append(
+            ToolMessage(
+                name="to_primary_assistant",  # Is it mandatory to add this name parameter as it is optional one?
+                content="Resuming dialog with the host assistant. Please reflect on the past conversation and assist the user as needed.",
+                tool_call_id=state["messages"][-1].tool_calls[0]["id"],
+            )
+        )
+    return {
+        "dialog_state": "pop",
+        "messages": messages,
+    }
+
+
+builder.add_node("leave_skill", pop_dialog_state)
+
+builder.add_edge("leave_skill", "primary_assistant")
+
+
 ####################################
 # PRIMARY ASSISTANT
 ####################################
@@ -99,7 +132,9 @@ builder.add_node("primary_assistant", primary_assistant_node)
 builder.add_node("primary_assistant_tools", primary_assistant_tool_node)
 
 
-def route_primary_assistant(state: State, _: RunnableConfig) -> str:
+# NOTE: The `config` parameter in the function below is not used.
+# Do not replace it with `_` (underscore), as that will cause an error.
+def route_primary_assistant(state: State, config: RunnableConfig) -> str:
     route = tools_condition(state)
     if route == END:
         return END
@@ -120,8 +155,8 @@ builder.add_conditional_edges(
     route_primary_assistant,
     [
         "enter_create_event",
-        "enter_update_event",
-        "enter_cancel_event",
+        # "enter_update_event",
+        # "enter_cancel_event",
         "primary_assistant_tools",
         END,
     ],
