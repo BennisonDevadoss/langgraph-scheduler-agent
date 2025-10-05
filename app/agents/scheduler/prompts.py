@@ -57,6 +57,8 @@ create_event_assistant_prompt = ChatPromptTemplate.from_messages(
             "  2. Ask for the **purpose/description** of the call."
             "  3. Ask for the user's **email** (required to send the meeting link)."
             "  4. Ask for the user's **preferred time** for the call."
+            "     - Convert the provided natural language time into an **ISO 8601 datetime string in IST (Asia/Kolkata)** using the available tool."
+            "     - Use this converted ISO datetime in the event creation step also on avilability check."
             "     - Check if the requested time is available."
             "     - If not, suggest nearby available times."
             "     - If user declines, share when their preferred time is next available."

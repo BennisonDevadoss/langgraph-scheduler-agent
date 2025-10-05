@@ -20,17 +20,33 @@ class State(TypedDict):
     # in the annotation defines how this state key should be updated
     # (in this case, it appends messages to the list, rather than overwriting them)
     messages: Annotated[Sequence[BaseMessage], add_messages]
-    summary: str
-    start: datetime
-    timezone: str | None = "Asia/Kolkata"
-    attendees: list[str] | None = None
-    description: str | None = None
-    location: str | None = None
-    reminders: list[dict[str, Any]] | None = None
+    summary: str | None
+    start: datetime | None
+    timezone: str | None
+    attendees: list[str] | None
+    description: str | None
+    location: str | None
+    reminders: list[dict[str, Any]] | None
+    # Create Event Responses
+    event_id: str | None
+    meet_link: str | None
+    event_link: str | None
     dialog_state: Annotated[
         list[Literal["primary_assistant"]],
         update_dialog_stack,
     ]
 
 
-default_state: State = {}
+default_state: State = {
+    "start": None,
+    "summary": None,
+    "location": None,
+    "timezone": None,
+    "reminders": None,
+    "attendees": None,
+    "description": None,
+    # Create Event Responses
+    "event_id": None,
+    "meet_link": None,
+    "event_link": None,
+}
