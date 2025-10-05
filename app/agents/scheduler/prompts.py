@@ -7,7 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 # PRIMARY ASSISTANT (EVENT INTENT IDENTIFICATION & DELEGATION)
 ###################################
 
-primary_event_assistant_prompt = ChatPromptTemplate.from_messages(
+primary_assistant_prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",

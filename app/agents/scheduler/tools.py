@@ -41,6 +41,6 @@ primary_assistant_tools = [
     ToUpdateEventAssistant,
     ToCancelEventAssistant,
 ]
-event_create_assistant_tools = []
-event_update_assistant_tools = []
-event_cancel_assistant_tools = []
+create_event_assistant_tools = []
+update_event_assistant_tools = []
+cancel_event_assistant_tools = []
