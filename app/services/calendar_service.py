@@ -18,7 +18,7 @@ from exceptions.custom_errors import (
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
 TOKEN_FILE = "./creds/token.json"
-CREDENTIALS_FILE = "./creds/token.json"
+CREDENTIALS_FILE = "./creds/credentials.json"
 
 
 def authenticate_user() -> str:
