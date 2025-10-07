@@ -1,6 +1,7 @@
-from typing import List, Optional
+from typing import List, Optional, Annotated
 from datetime import datetime
 from pydantic import BaseModel, Field, EmailStr
+from langchain_core.tools.base import InjectedToolCallId
 
 
 class CreateEventToolArgs(BaseModel):
@@ -19,6 +20,7 @@ class CreateEventToolArgs(BaseModel):
         default=None,
         description="List of attendee email addresses to be invited to the event.",
     )
+    tool_call_id: Annotated[str, InjectedToolCallId]
     # tool_call_id: str = Field(
     #     ...,
     #     description="Unique identifier for the tool call. Used internally to track the assistant's action request.",
