@@ -1,6 +1,6 @@
-# AgenticRAG
+# Schedule-Pro
 
-A production-ready agentic RAG (Retrieval-Augmented Generation) application built with LangGraph. This app empowers an AI agent to intelligently use multiple tools—such as vector databases and APIs—to answer complex questions by dynamically retrieving and combining information from various sources. Easily extensible and robust, this application is designed for real-world deployment.
+Agentic RAG–powered assistant built with LangGraph that answers user queries from a knowledge base and guides users to create, update, or cancel Google Meet calls, managing availability and sending meeting links via email.
 
 ---
 
@@ -9,8 +9,8 @@ A production-ready agentic RAG (Retrieval-Augmented Generation) application buil
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/BennisonDevadoss/AgenticRAG.git
-cd AgenticRAG
+git clone [https://github.com/BennisonDevadoss/schedule-pro.git](https://github.com/BennisonDevadoss/schedule-pro.git)
+cd schedule-pro
 ```
 
 ---
