@@ -220,6 +220,7 @@ primary_assistant_tools = [
     ToCreateEventAssistant,
     ToUpdateEventAssistant,
     ToCancelEventAssistant,
+    # CompleteOrEscalate, # note: Don't need it.
 ]
 create_event_assistant_tools = [
     create_event,

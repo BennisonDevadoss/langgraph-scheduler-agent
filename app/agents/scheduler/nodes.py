@@ -4,8 +4,8 @@ from langgraph.prebuilt import ToolNode
 from langchain_core.messages import ToolMessage
 from langchain_core.runnables import Runnable, RunnableConfig, RunnableLambda
 
-from .state import State, default_state
-from ..common.shared_state import State as SharedState
+# from .state import State, default_state
+from ..common.shared_state import State as SharedState, default_state
 from .prompts import primary_assistant_prompt, create_event_assistant_prompt
 from config.llms import llm
 from .tools import (
@@ -77,7 +77,7 @@ def create_entry_node(assistant_name: str, new_dialog_state: str) -> Callable:
                     tool_call_id=tool_call_id,
                 )
             ],
-            "dialog_state": new_dialog_state,
+            "s_dialog_state": new_dialog_state,
         }
 
     return entry_node

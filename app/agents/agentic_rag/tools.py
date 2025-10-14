@@ -22,9 +22,7 @@ class ToSchedulerAssistant(BaseModel):
     action: str = Field(
         description="Specifies the scheduling action type. One of: 'create', 'update', or 'cancel'."
     )
-    request: str = Field(
-        description="Details or follow-up context related to the scheduling action. Example: user's preferred date, time, or clarification request."
-    )
+    # request: str = Field(description="Details related to the scheduling action.") # if it is there this `primary_assistant` asks for date and time.
 
 
 class CompleteOrEscalate(BaseModel):

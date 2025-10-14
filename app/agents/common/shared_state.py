@@ -5,13 +5,35 @@ from typing_extensions import TypedDict
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
+from config.logger import logger
 
-def update_dialog_stack(left: list[str], right: Optional[str]) -> list[str]:
-    """Push or pop the state."""
+
+def update_dialog_stack(left: list[str], right: Optional[str | list[str]]) -> list[str]:
+    """Push or pop the state.
+
+    When a subgraph returns, it may pass the entire list back.
+    In that case, we should use the subgraph's value as-is (replace, not append).
+    """
     if right is None:
         return left
+
+    # If subgraph returns a list, it's the complete state - use it as-is
+    if isinstance(right, list):
+        # If it's the same as left, no change needed (avoid unnecessary updates)
+        if right == left:
+            return left
+        # Otherwise, the subgraph is returning its internal state - keep parent's state
+        # This prevents subgraph's internal dialog state from polluting parent
+        logger.debug(
+            f"Subgraph returned different state: {right}, keeping parent: {left}"
+        )
+        return left
+
+    # String operations: push or pop
     if right == "pop":
         return left[:-1]
+
+    # Push new dialog state
     return left + [right]
 
 
@@ -31,8 +53,16 @@ class State(TypedDict):
     event_id: str | None
     meet_link: str | None
     event_link: str | None
-    dialog_state: Annotated[
-        list[Literal["primary_assistant"]],
+    p_dialog_state: Annotated[
+        list[
+            Literal[
+                "primary_assistant", "scheduler_assistant", "generate_query_or_respond"
+            ]
+        ],
+        update_dialog_stack,
+    ]
+    s_dialog_state: Annotated[
+        list[Literal["primary_assistant", "create_event_assistant"]],
         update_dialog_stack,
     ]
 

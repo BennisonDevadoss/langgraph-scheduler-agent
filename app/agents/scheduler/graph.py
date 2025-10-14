@@ -7,11 +7,11 @@ from langchain_core.messages import ToolMessage
 from langchain_core.runnables.graph import MermaidDrawMethod
 from langchain_core.runnables.config import RunnableConfig
 
-from .state import State
+# from .state import State
 from config.logger import logger
 
 # from ..common.callbacks import get_all_callbacks
-from ..common.checkpointer import checkpointer
+# from ..common.checkpointer import checkpointer
 from ..common.shared_state import State as SharedState
 from .tools import (
     CompleteOrEscalate,
@@ -33,7 +33,7 @@ from .nodes import (
 
 
 def _print_event(event: dict, _printed: set, max_length: int = 1500) -> str:
-    current_state = event.get("dialog_state")
+    current_state = event.get("s_dialog_state")
     if current_state:
         logger.info(f"Currently in: {current_state[-1]}")
     message: Messages = event.get("messages")
@@ -116,7 +116,8 @@ def pop_dialog_state(state: SharedState) -> dict:
             )
         )
     return {
-        "dialog_state": "pop",
+        # Pop from the scheduler dialog stack
+        "s_dialog_state": "pop",
         "messages": messages,
     }
 
@@ -176,10 +177,11 @@ def route_to_workflow(
     # "cancel_event_assistant",
 ]:
     """If we are in a delegated state, route directly to the appropriate assistant."""
-    dialog_state = state.get("dialog_state")
+    dialog_state = state.get(
+        "s_dialog_state"
+    )  # WARNING: `s_dialog_state` is always empty list - []
     if not dialog_state:
         return "primary_assistant"
-        # return END
     return dialog_state[-1]
 
 
