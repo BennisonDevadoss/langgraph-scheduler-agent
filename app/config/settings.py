@@ -71,5 +71,12 @@ class Settings(BaseSettings):
     CALENDAR_WORKING_HOURS_START: int | None = Field(default=9)  # 9 AM
     CALENDAR_SLOT_DURATION_MINUTES: int | None = Field(default=30)  # 30 Min
 
+    LANGSMITH_TRACING: str = Field(default="true")
+    LANGSMITH_ENDPOINT: AnyHttpUrl | str = Field(
+        default="https://api.smith.langchain.com"
+    )
+    LANGSMITH_API_KEY: str
+    LANGSMITH_PROJECT: str = Field(default="schedule-pro")
+
 
 SETTINGS = Settings()  # type: ignore

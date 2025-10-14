@@ -1,3 +1,4 @@
+import os
 from typing import Any, Literal
 
 from langgraph.graph import StateGraph, START, END
@@ -10,6 +11,7 @@ from langchain_core.runnables.graph import MermaidDrawMethod
 from langchain_core.runnables.config import RunnableConfig
 
 from config.logger import logger
+from config.settings import SETTINGS
 from ..scheduler.graph import graph as subgraph
 from ..common.checkpointer import checkpointer
 from .tools import (
@@ -30,14 +32,29 @@ from .nodes import (
 
 
 ####################################
+# ENABLE LANGGSMITH TRACING IF CONFIGURED
+####################################
+
+os.environ["LANGSMITH_TRACING"] = SETTINGS.LANGSMITH_TRACING
+os.environ["LANGSMITH_API_KEY"] = SETTINGS.LANGSMITH_API_KEY
+os.environ["LANGSMITH_PROJECT"] = SETTINGS.LANGSMITH_PROJECT
+os.environ["LANGSMITH_ENDPOINT"] = SETTINGS.LANGSMITH_ENDPOINT
+
+####################################
 # UTILITIES
 ####################################
 
 
 def _print_event(event: dict, _printed: set, max_length: int = 1500) -> str:
-    current_state = event.get("dialog_state")
-    if current_state:
-        logger.info(f"Currently in: {current_state[-1]}")
+    p_dialog_state = event.get("p_dialog_state")
+    s_dialog_state = event.get("s_dialog_state")
+    if p_dialog_state or s_dialog_state:
+        logger.info(
+            f"Dialog State - Parent: {p_dialog_state[-1]}, Subgraph: {s_dialog_state[-1] if s_dialog_state else 'None'}"
+        )
+    else:
+        logger.info("Dialog State - Parent: primary_assistant, Subgraph: None")
+
     message: Messages = event.get("messages")
     if message:
         if isinstance(message, list):
@@ -131,12 +148,31 @@ builder.add_edge("rewrite_question", "generate_query_or_respond")
 ###################################
 # SUB GRAPH
 ###################################
+
+
+# def route_scheduler_assistant(state: SharedState) -> str:
+#     route = tools_condition(state)
+#     if route == END:
+#         return END
+#     tool_calls = state["messages"][-1].tool_calls
+#     did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
+#     if did_cancel:
+#         return "primary_assistant"
+#     return END
+
+
 builder.add_node(
     "enter_scheduler_assistant",
     create_entry_node("Scheduler Assistant", "scheduler_assistant"),
 )
 builder.add_node("scheduler_assistant", subgraph)
 builder.add_edge("enter_scheduler_assistant", "scheduler_assistant")
+
+# When subgraph completes, it should end (user can continue in next turn via START routing)
+builder.add_edge("scheduler_assistant", END)
+# builder.add_conditional_edges(
+#     "scheduler_assistant", route_scheduler_assistant, ["primary_assistant", END]
+# )
 
 
 ####################################
@@ -160,7 +196,8 @@ def pop_dialog_state(state: SharedState) -> dict:
             )
         )
     return {
-        "dialog_state": "pop",
+        # Pop from the parent dialog stack
+        "p_dialog_state": "pop",
         "messages": messages,
     }
 
@@ -213,10 +250,9 @@ def route_to_workflow(
     "generate_query_or_respond",
 ]:
     """If we are in a delegated state, route directly to the appropriate assistant."""
-    dialog_state = state.get("dialog_state")
+    dialog_state = state.get("p_dialog_state")
     if not dialog_state:
         return "primary_assistant"
-        # return END
     return dialog_state[-1]
 
 
@@ -266,7 +302,10 @@ async def stream_graph_updates(
 
     final_output = ""
     events = graph.stream(
-        {"messages": ("user", user_input)}, config=config, stream_mode="values"
+        {"messages": ("user", user_input)},
+        config=config,
+        stream_mode="values",
+        # subgraphs=True,
     )
     for event in events:
         final_output = _print_event(event, _printed)

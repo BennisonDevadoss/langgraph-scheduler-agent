@@ -7,15 +7,15 @@ from langchain_core.runnables import Runnable, RunnableConfig, RunnableLambda
 from langchain_core.messages.base import BaseMessage
 
 
+# from .state import State, default_state
+from config.llms import llm
+from ..common.shared_state import State as SharedState, default_state
 from .tools import (
     retriever_tool,
     CompleteOrEscalate,
     rag_assistant_tools,
     primary_assistant_tools,
 )
-from .state import State, default_state
-from ..common.shared_state import State as SharedState
-from config.llms import llm
 from .prompts import (
     rag_assistant_prompt,
     primary_assistant_prompt,
@@ -200,7 +200,8 @@ def create_entry_node(assistant_name: str, new_dialog_state: str) -> Callable:
                     tool_call_id=tool_call_id,
                 )
             ],
-            "dialog_state": new_dialog_state,
+            # Push onto parent dialog stack via update function by returning a string
+            "p_dialog_state": new_dialog_state,
         }
 
     return entry_node
