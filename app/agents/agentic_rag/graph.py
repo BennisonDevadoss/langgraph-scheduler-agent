@@ -48,12 +48,11 @@ os.environ["LANGSMITH_ENDPOINT"] = SETTINGS.LANGSMITH_ENDPOINT
 def _print_event(event: dict, _printed: set, max_length: int = 1500) -> str:
     p_dialog_state = event.get("p_dialog_state")
     s_dialog_state = event.get("s_dialog_state")
-    if p_dialog_state or s_dialog_state:
-        logger.info(
-            f"Dialog State - Parent: {p_dialog_state[-1]}, Subgraph: {s_dialog_state[-1] if s_dialog_state else 'None'}"
-        )
-    else:
-        logger.info("Dialog State - Parent: primary_assistant, Subgraph: None")
+    
+    p_state_str = p_dialog_state[-1] if p_dialog_state else "primary_assistant"
+    s_state_str = s_dialog_state[-1] if s_dialog_state else "None"
+    
+    logger.info(f"Dialog State - Parent: {p_state_str}, Subgraph: {s_state_str}")
 
     message: Messages = event.get("messages")
     if message:
