@@ -5,6 +5,7 @@ from langchain_core.messages import ToolMessage
 from langchain_core.runnables import Runnable, RunnableConfig, RunnableLambda
 
 from .state import State, default_state
+from ..common.shared_state import State as SharedState
 from .prompts import primary_assistant_prompt, create_event_assistant_prompt
 from config.llms import llm
 from .tools import (
@@ -18,7 +19,7 @@ class Assistant:
     def __init__(self, runnable: Runnable) -> None:
         self.runnable = runnable
 
-    def __call__(self, state: State, config: RunnableConfig) -> dict[str, Any]:
+    def __call__(self, state: SharedState, config: RunnableConfig) -> dict[str, Any]:
         while True:
             # configuration = config.get("configurable", {})
             state = {**default_state, **state}
@@ -62,7 +63,7 @@ create_event_assistant_node = Assistant(create_event_assistant_runnable)
 
 
 def create_entry_node(assistant_name: str, new_dialog_state: str) -> Callable:
-    def entry_node(state: State) -> dict:
+    def entry_node(state: SharedState) -> dict:
         tool_call_id = state["messages"][-1].tool_calls[0]["id"]
         return {
             "messages": [
@@ -87,7 +88,7 @@ def create_entry_node(assistant_name: str, new_dialog_state: str) -> Callable:
 ###################################
 
 
-def handle_tool_error(state: State) -> dict:
+def handle_tool_error(state: SharedState) -> dict:
     error = state.get("error")
     tool_calls = state["messages"][-1].tool_calls
     return {

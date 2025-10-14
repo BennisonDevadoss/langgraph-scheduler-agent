@@ -1,20 +1,31 @@
-from typing import Any
+from typing import Any, Literal
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import tools_condition
 from ..common.callbacks import get_all_callbacks
+from ..common.shared_state import State as SharedState
 from langgraph.graph.message import Messages
+from langchain_core.messages import ToolMessage
 from langchain_core.runnables.graph import MermaidDrawMethod
+from langchain_core.runnables.config import RunnableConfig
 
-from .state import State
 from config.logger import logger
+from ..scheduler.graph import graph as subgraph
 from ..common.checkpointer import checkpointer
+from .tools import (
+    ToRAGAssistant,
+    CompleteOrEscalate,
+    ToSchedulerAssistant,
+)
 from .nodes import (
     grade_documents,
     generate_answer,
     rewrite_question,
-    retriever_tool_node,
+    create_entry_node,
+    primary_assistant_node,
+    rag_assistant_tool_node,
     generate_query_or_respond,
+    primary_assistant_tool_node,
 )
 
 
@@ -47,23 +58,66 @@ def _print_event(event: dict, _printed: set, max_length: int = 1500) -> str:
 # DEFINE GRAPH
 ####################################
 
-builder = StateGraph(State)
+# builder = StateGraph(State)
+builder = StateGraph(SharedState)
+
+####################################
+# AGENTIC RAG GRAPH
+####################################
+# The first argument is the unique node name
+# The second argument is the function or object that will be called whenever
+# the node is used.
+
+
+# def route_rag_assistant(state: State) -> str:
+#     route = tools_condition(state)
+#     if route == END:
+#         return END
+#     tool_calls = state["messages"][-1].tool_calls
+#     did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
+#     if did_cancel:
+#         return "leave_skill"
+#     return "generate_query_or_respond"
+
 
 # Define the nodes we will cycle between
+builder.add_node(
+    "enter_generate_query_or_respond",
+    create_entry_node("RAG Assistant", "generate_query_or_respond"),
+)
 builder.add_node("generate_query_or_respond", generate_query_or_respond)
-builder.add_node("retrieve", retriever_tool_node)
+builder.add_node("retrieve", rag_assistant_tool_node)
 builder.add_node("rewrite_question", rewrite_question)
 builder.add_node("generate_answer", generate_answer)
 
-builder.add_edge(START, "generate_query_or_respond")
+builder.add_edge("enter_generate_query_or_respond", "generate_query_or_respond")
+# builder.add_edge(START, "generate_query_or_respond")
+
+
+def route_generate_query_or_respond(state: SharedState) -> str:
+    route = tools_condition(state)
+    if route == END:
+        return END
+    tool_calls = state["messages"][-1].tool_calls
+    did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
+    if did_cancel:
+        return "leave_skill"
+    return "retrieve"
+
+
+# builder.add_conditional_edges(
+#     "generate_query_or_respond",
+#     tools_condition,
+#     {
+#         "tools": "retrieve",
+#         END: END,
+#     },
+# )
 
 builder.add_conditional_edges(
     "generate_query_or_respond",
-    tools_condition,
-    {
-        "tools": "retrieve",
-        END: END,
-    },
+    route_generate_query_or_respond,
+    ["retrieve", "leave_skill", END],
 )
 
 builder.add_conditional_edges(
@@ -72,6 +126,110 @@ builder.add_conditional_edges(
 )
 builder.add_edge("generate_answer", END)
 builder.add_edge("rewrite_question", "generate_query_or_respond")
+
+
+###################################
+# SUB GRAPH
+###################################
+builder.add_node(
+    "enter_scheduler_assistant",
+    create_entry_node("Scheduler Assistant", "scheduler_assistant"),
+)
+builder.add_node("scheduler_assistant", subgraph)
+builder.add_edge("enter_scheduler_assistant", "scheduler_assistant")
+
+
+####################################
+# GENERIC NODES AND EDGES
+####################################
+# This node will be shared for exiting all specialized assistants
+def pop_dialog_state(state: SharedState) -> dict:
+    """Pop the dialog stack and return to the main assistant.
+
+    This lets the full graph explicitly track the dialog flow and delegate control
+    to specific sub-graphs.
+    """
+    messages = []
+    if state["messages"][-1].tool_calls:
+        # Note: Doesn't currently handle the edge case where the llm performs parallel tool calls
+        messages.append(
+            ToolMessage(
+                name="to_primary_assistant",  # Is it mandatory to add this name parameter as it is optional one?
+                content="Resuming dialog with the host assistant. Please reflect on the past conversation and assist the user as needed.",
+                tool_call_id=state["messages"][-1].tool_calls[0]["id"],
+            )
+        )
+    return {
+        "dialog_state": "pop",
+        "messages": messages,
+    }
+
+
+builder.add_node("leave_skill", pop_dialog_state)
+
+builder.add_edge("leave_skill", "primary_assistant")
+
+####################################
+# PRIMARY ASSISTANT
+####################################
+
+builder.add_node("primary_assistant", primary_assistant_node)
+builder.add_node("primary_assistant_tools", primary_assistant_tool_node)
+
+
+def route_primary_assistant(state: SharedState, config: RunnableConfig) -> str:
+    route = tools_condition(state)
+    if route == END:
+        return END
+    tool_calls = state["messages"][-1].tool_calls
+    if tool_calls:
+        if tool_calls[0]["name"] == ToRAGAssistant.__name__:
+            return "enter_generate_query_or_respond"
+        elif tool_calls[0]["name"] == ToSchedulerAssistant.__name__:
+            return "enter_scheduler_assistant"
+        return "primary_assistant_tools"
+    raise ValueError("Invalid route")
+
+
+builder.add_conditional_edges(
+    "primary_assistant",
+    route_primary_assistant,
+    [
+        END,
+        "primary_assistant_tools",
+        "enter_scheduler_assistant",
+        "enter_generate_query_or_respond",
+    ],
+)
+
+
+# Each delegated workflow can directly respond to the user
+# When the user responds, we want to return to the currently active workflow
+def route_to_workflow(
+    state: SharedState,
+) -> Literal[
+    "primary_assistant",
+    "scheduler_assistant",
+    "generate_query_or_respond",
+]:
+    """If we are in a delegated state, route directly to the appropriate assistant."""
+    dialog_state = state.get("dialog_state")
+    if not dialog_state:
+        return "primary_assistant"
+        # return END
+    return dialog_state[-1]
+
+
+builder.add_conditional_edges(
+    START,
+    route_to_workflow,
+    [
+        "primary_assistant",
+        "scheduler_assistant",
+        "generate_query_or_respond",
+    ],
+)
+builder.add_edge("primary_assistant_tools", "primary_assistant")
 
 ###################################
 # COMPILE GRAPH

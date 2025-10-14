@@ -12,6 +12,7 @@ from config.logger import logger
 
 # from ..common.callbacks import get_all_callbacks
 from ..common.checkpointer import checkpointer
+from ..common.shared_state import State as SharedState
 from .tools import (
     CompleteOrEscalate,
     ToCreateEventAssistant,
@@ -55,7 +56,8 @@ def _print_event(event: dict, _printed: set, max_length: int = 1500) -> str:
 # DEFINE GRAPH
 ####################################
 
-builder = StateGraph(State)
+# builder = StateGraph(State)
+builder = StateGraph(SharedState)
 
 ###################################
 # CREATE EVENT ASSISTANT
@@ -66,7 +68,7 @@ builder = StateGraph(State)
 # the node is used.
 
 
-def route_create_event_assistant(state: State) -> str:
+def route_create_event_assistant(state: SharedState) -> str:
     route = tools_condition(state)
     if route == END:
         return END
@@ -97,7 +99,7 @@ builder.add_edge("create_event_assistant_tools", "create_event_assistant")
 # GENERIC NODES AND EDGES
 ####################################
 # This node will be shared for exiting all specialized assistants
-def pop_dialog_state(state: State) -> dict:
+def pop_dialog_state(state: SharedState) -> dict:
     """Pop the dialog stack and return to the main assistant.
 
     This lets the full graph explicitly track the dialog flow and delegate control
@@ -134,7 +136,7 @@ builder.add_node("primary_assistant_tools", primary_assistant_tool_node)
 
 # NOTE: The `config` parameter in the function below is not used.
 # Do not replace it with `_` (underscore), as that will cause an error.
-def route_primary_assistant(state: State, config: RunnableConfig) -> str:
+def route_primary_assistant(state: SharedState, config: RunnableConfig) -> str:
     route = tools_condition(state)
     if route == END:
         return END
@@ -166,7 +168,7 @@ builder.add_conditional_edges(
 # Each delegated workflow can directly respond to the user
 # When the user responds, we want to return to the currently active workflow
 def route_to_workflow(
-    state: State,
+    state: SharedState,
 ) -> Literal[
     "primary_assistant",
     "create_event_assistant",
@@ -199,7 +201,9 @@ builder.add_edge("primary_assistant_tools", "primary_assistant")
 # COMPILE GRAPH
 ###################################
 
-graph = builder.compile(checkpointer=checkpointer)
+# NOTE: checkpointers are not needed (if needed you could add) when using an graph as an subgraph
+# graph = builder.compile(checkpointer=checkpointer)
+graph = builder.compile()
 
 try:
     png_data = graph.get_graph(xray=True).draw_mermaid_png(
@@ -210,7 +214,6 @@ try:
 except Exception as e:
     logger.error(e)
     pass
-
 
 _printed: Any = set()
 

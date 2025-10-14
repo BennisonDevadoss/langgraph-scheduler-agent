@@ -1,4 +1,4 @@
-from typing import Any, Literal, Sequence
+from typing import Any, Literal, Sequence, Callable
 
 from pydantic import BaseModel, Field
 from langgraph.prebuilt import ToolNode
@@ -7,10 +7,18 @@ from langchain_core.runnables import Runnable, RunnableConfig, RunnableLambda
 from langchain_core.messages.base import BaseMessage
 
 
-from .tools import retriever_tool
+from .tools import (
+    retriever_tool,
+    CompleteOrEscalate,
+    rag_assistant_tools,
+    primary_assistant_tools,
+)
 from .state import State, default_state
+from ..common.shared_state import State as SharedState
 from config.llms import llm
 from .prompts import (
+    rag_assistant_prompt,
+    primary_assistant_prompt,
     generate_answer_assistant_prompt,
     document_greading_assistant_prompt,
     rewrite_user_prompt_assistant_prompt,
@@ -21,7 +29,7 @@ class Assistant:
     def __init__(self, runnable: Runnable) -> None:
         self.runnable = runnable
 
-    def __call__(self, state: State, config: RunnableConfig) -> dict[str, Any]:
+    def __call__(self, state: SharedState, config: RunnableConfig) -> dict[str, Any]:
         while True:
             # configuration = config.get("configurable", {})
             state = {**default_state, **state}
@@ -42,12 +50,30 @@ class Assistant:
 
 
 ###################################
+# SUPERVISOR ASSISTANT
+###################################
+
+primary_assistant_runnable = primary_assistant_prompt | llm.bind_tools(
+    primary_assistant_tools
+)
+primary_assistant_node = Assistant(primary_assistant_runnable)
+
+###################################
+# RAG ASSISTANT
+###################################
+
+rag_assistant_runnable = rag_assistant_prompt | llm.bind_tools(
+    []
+)  # need to work on here.
+rag_assistant_node = Assistant(rag_assistant_runnable)
+
+###################################
 # GENERATE QUERY OR RESPOND ASSISTANT
 ###################################
 
 
 def generate_query_or_respond(
-    state: State, config: RunnableConfig
+    state: SharedState, config: RunnableConfig
 ) -> dict[str, list[BaseMessage]]:
     """Call the model to generate a response based on the current state. Given
     the question, it will decide to retrieve using the retriever tool, or simply respond to the user.
@@ -60,7 +86,10 @@ def generate_query_or_respond(
     # )
     # retriver_tools = get_all_retriver_tools(collection_name)
 
-    response = llm.bind_tools([retriever_tool]).invoke(state["messages"])
+    runnable = rag_assistant_prompt | llm.bind_tools(
+        [retriever_tool, CompleteOrEscalate]
+    )
+    response = runnable.invoke(state)
     return {"messages": [response]}
 
 
@@ -82,7 +111,7 @@ class GradeDocuments(BaseModel):
 
 
 def grade_documents(
-    state: State,
+    state: SharedState,
 ) -> Literal["generate_answer", "rewrite_question"]:
     """Determine whether the retrieved documents are relevant to the question."""
     question = state["messages"][0].content
@@ -121,7 +150,7 @@ def get_latest_human_question(messages: Sequence[BaseMessage]) -> str:
     return ""
 
 
-def rewrite_question(state: State) -> dict[str, list[dict[str, Any]]]:
+def rewrite_question(state: SharedState) -> dict[str, list[dict[str, Any]]]:
     """Rewrite the original user question."""
     messages = state["messages"]
     question = get_latest_human_question(messages)
@@ -138,7 +167,7 @@ def rewrite_question(state: State) -> dict[str, list[dict[str, Any]]]:
 ###################################
 
 
-def generate_answer(state: State) -> dict[str, list]:
+def generate_answer(state: SharedState) -> dict[str, list]:
     """Generate an answer."""
     question = state["messages"][0].content
     context = state["messages"][-1].content
@@ -150,12 +179,39 @@ def generate_answer(state: State) -> dict[str, list]:
 # generate_answer_assistant_runnable = generate_answer_assistant_prompt | llm
 # generate_answer_assistant_node = Assistant(generate_answer_assistant_runnable)
 
+
+###################################
+# ENTRY NODE
+###################################
+
+
+def create_entry_node(assistant_name: str, new_dialog_state: str) -> Callable:
+    def entry_node(state: SharedState) -> dict:
+        tool_call_id = state["messages"][-1].tool_calls[0]["id"]
+        return {
+            "messages": [
+                ToolMessage(
+                    name=new_dialog_state,  # IS IT MANDATORY TO ADD THIS NAME PARAMETER AS IT IS OPTIONAL ONE?
+                    content=f"The assistant is now the {assistant_name}. Reflect on the above conversation between the host assistant and the user."
+                    f" The user's intent is unsatisfied. Use the provided tools to assist the user. Remember, you are {assistant_name},"
+                    " and the booking, update, other other action is not complete until after you have successfully invoked the appropriate tool."
+                    " If the user changes their mind or needs help for other tasks, call the CompleteOrEscalate function to let the primary host assistant take control."
+                    " Do not mention who you are - just act as the proxy for the assistant.",
+                    tool_call_id=tool_call_id,
+                )
+            ],
+            "dialog_state": new_dialog_state,
+        }
+
+    return entry_node
+
+
 ###################################
 # TOOL NODE
 ###################################
 
 
-def handle_tool_error(state: State) -> dict:
+def handle_tool_error(state: SharedState) -> dict:
     error = state.get("error")
     tool_calls = state["messages"][-1].tool_calls
     return {
@@ -175,4 +231,5 @@ def create_tool_node_with_fallback(tools: list) -> dict:
     )
 
 
-retriever_tool_node = create_tool_node_with_fallback([retriever_tool])
+rag_assistant_tool_node = create_tool_node_with_fallback(rag_assistant_tools)
+primary_assistant_tool_node = create_tool_node_with_fallback(primary_assistant_tools)
