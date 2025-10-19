@@ -8,15 +8,15 @@ from agents.scheduler.graph import (
 )
 
 
+# Connects the agentic_rag assistant to the scheduler agent using LangGraph subgraphs
 async def generate_rag_chat_completion(
-    messages: List[dict], collection_name: str, thread_id: str
+    messages: List[dict],
+    thread_id: str,
 ) -> str:
     """
     Generates a chat completion from the LLM based on the provided messages.
     """
-    return await stream_rag_graph_updates(
-        messages[-1]["content"], collection_name, thread_id
-    )
+    return await stream_rag_graph_updates(messages[-1]["content"], thread_id)
 
 
 async def generate_scheduler_chat_completion(

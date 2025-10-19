@@ -48,10 +48,10 @@ os.environ["LANGSMITH_ENDPOINT"] = SETTINGS.LANGSMITH_ENDPOINT
 def _print_event(event: dict, _printed: set, max_length: int = 1500) -> str:
     p_dialog_state = event.get("p_dialog_state")
     s_dialog_state = event.get("s_dialog_state")
-    
+
     p_state_str = p_dialog_state[-1] if p_dialog_state else "primary_assistant"
     s_state_str = s_dialog_state[-1] if s_dialog_state else "None"
-    
+
     logger.info(f"Dialog State - Parent: {p_state_str}, Subgraph: {s_state_str}")
 
     message: Messages = event.get("messages")
@@ -285,13 +285,10 @@ except Exception as e:
 _printed: Any = set()
 
 
-async def stream_graph_updates(
-    user_input: str, collection_name: str, thread_id: str
-) -> str:
+async def stream_graph_updates(user_input: str, thread_id: str) -> str:
     config = {
         "configurable": {
             "thread_id": thread_id,
-            "collection_name": collection_name,
         },
         "callbacks": get_all_callbacks(thread_id),
     }

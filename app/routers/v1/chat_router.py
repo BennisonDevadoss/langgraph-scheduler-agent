@@ -13,7 +13,7 @@ from schemas.chat_schema import (
 chat_router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
-@chat_router.post("/rag/web", response_model=ChatResponse)
+@chat_router.post("/rag/web", response_model=ChatResponse, deprecated=True)
 async def rag_chat_completion(request: RAGChatRequestParams) -> ChatResponse:
     """
     Endpoint to generate chat completions from the LLM based on user input messages.
@@ -28,7 +28,7 @@ async def rag_chat_completion(request: RAGChatRequestParams) -> ChatResponse:
         raise e
 
 
-@chat_router.post("/scheduler/web", response_model=ChatResponse)
+@chat_router.post("/scheduler/web", response_model=ChatResponse, deprecated=True)
 async def schduler_chat_completion(request: SchedulerChatRequestParams) -> ChatResponse:
     """
     Endpoint to generate chat completions from the LLM based on user input messages.
@@ -49,6 +49,7 @@ async def schduler_chat_completion(request: SchedulerChatRequestParams) -> ChatR
 @chat_router.post(
     "/secure/web",
     dependencies=[Depends(verify_captcha), Depends(verify_session_fingerprint)],
+    deprecated=True,
     response_model=ChatResponse,
 )
 async def chat_completion_web(

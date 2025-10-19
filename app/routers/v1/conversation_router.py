@@ -124,7 +124,7 @@ async def send_chat_message(
         # Generate bot response using existing chat service
         # Using a simple thread_id based on conversation_id
         thread_id = f"conv_{conversation.id}"
-        bot_response = await chat_service.generate_scheduler_chat_completion(
+        bot_response = await chat_service.generate_rag_chat_completion(
             message_history, thread_id
         )
 
