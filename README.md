@@ -37,7 +37,7 @@ Prerequisites:
 1. Clone
 
 ```bash
-git clone https://github.com/BennisonDevadoss/langgraph-scheduler-agent
+git clone https://github.com/BennisonDevadoss/langgraph-scheduler-agent.git
 cd langgraph-scheduler-agent
 mkdir assets creds
 ```
