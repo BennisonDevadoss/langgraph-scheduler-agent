@@ -1,4 +1,6 @@
+import uuid
 from sqlalchemy.orm import relationship, Mapped
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import (
     Text,
     func,
@@ -73,3 +75,57 @@ class User(Base):
 
     # Relationships
     role: Mapped[Role] = relationship("Role", back_populates="users")
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, unique=True)
+    uuid = Column(
+        UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True
+    )  # Public-facing ID
+    session_id = Column(String(255), nullable=False, index=True)  # Browser session ID
+    title = Column(String(255), nullable=True)  # Optional conversation title
+
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        server_onupdate=func.now(),
+        nullable=False,
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    messages = relationship(
+        "Message", back_populates="conversation", cascade="all, delete-orphan"
+    )
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, unique=True)
+    conversation_id = Column(
+        Integer, ForeignKey("conversations.id"), nullable=False, index=True
+    )
+    role = Column(String(50), nullable=False)  # 'user' or 'bot'
+    content = Column(Text, nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        server_onupdate=func.now(),
+        nullable=False,
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    conversation: Mapped[Conversation] = relationship(
+        "Conversation", back_populates="messages"
+    )
