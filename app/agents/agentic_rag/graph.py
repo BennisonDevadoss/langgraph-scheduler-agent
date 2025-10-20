@@ -276,7 +276,7 @@ try:
     png_data = graph.get_graph(xray=True).draw_mermaid_png(
         draw_method=MermaidDrawMethod.API
     )
-    with open("./assets/agentic-rag-graph.png", "wb") as f:
+    with open("../workflow.png", "wb") as f:
         f.write(png_data)
 except Exception as e:
     logger.error(e)

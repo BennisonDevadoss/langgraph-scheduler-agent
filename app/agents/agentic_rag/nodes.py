@@ -169,7 +169,7 @@ def rewrite_question(state: SharedState) -> dict[str, list[dict[str, Any]]]:
 
 def generate_answer(state: SharedState) -> dict[str, list]:
     """Generate an answer."""
-    question = state["messages"][0].content
+    question = get_latest_human_question(state["messages"])
     context = state["messages"][-1].content
     prompt = generate_answer_assistant_prompt.format(question=question, context=context)
     response = llm.invoke([{"role": "user", "content": prompt}])
